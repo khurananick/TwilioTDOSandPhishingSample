@@ -1,0 +1,312 @@
+{
+  "description": "A New Flow",
+  "states": [
+    {
+      "name": "Trigger",
+      "type": "trigger",
+      "transitions": [
+        {
+          "event": "incomingMessage"
+        },
+        {
+          "next": "SET_CAPTCHA",
+          "event": "incomingCall"
+        },
+        {
+          "event": "incomingRequest"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "name": "SET_CAPTCHA",
+      "type": "set-variables",
+      "transitions": [
+        {
+          "next": "GET_CAPTCHA",
+          "event": "next"
+        }
+      ],
+      "properties": {
+        "variables": [
+          {
+            "value": "{{ \"now\" | date: \"%S\" | slice:0 }}",
+            "key": "cap1"
+          },
+          {
+            "value": "{{ \"now\" | date: \"%S\" | slice:1 }}",
+            "key": "cap2"
+          }
+        ],
+        "offset": {
+          "x": -380,
+          "y": 220
+        }
+      }
+    },
+    {
+      "name": "GET_CAPTCHA",
+      "type": "gather-input-on-call",
+      "transitions": [
+        {
+          "next": "TEST_CAPTCHA",
+          "event": "keypress"
+        },
+        {
+          "event": "speech"
+        },
+        {
+          "event": "timeout"
+        }
+      ],
+      "properties": {
+        "voice": "Polly.Joanna",
+        "speech_timeout": "auto",
+        "offset": {
+          "x": -40,
+          "y": 220
+        },
+        "loop": 1,
+        "finish_on_key": "#",
+        "say": "To continue, please tell me.  What is {{flow.variables.cap1}}  . PLUS. {{flow.variables.cap2}}  ? Follow by the pound sign.",
+        "language": "en-US",
+        "stop_gather": true,
+        "gather_language": "en",
+        "profanity_filter": "true",
+        "timeout": 5
+      }
+    },
+    {
+      "name": "TEST_CAPTCHA",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "INVALID_CAPTCHA",
+          "event": "noMatch"
+        },
+        {
+          "next": "VALID_CAPTCHA",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value equal_to {{ flow.data.cap1 | plus: flow.data.cap2 }}",
+              "arguments": [
+                "{{widgets.GET_CAPTCHA.Digits}}"
+              ],
+              "type": "equal_to",
+              "value": "{{ flow.variables.cap1 | plus: flow.variables.cap2 }}"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.GET_CAPTCHA.Digits}}",
+        "offset": {
+          "x": -380,
+          "y": 480
+        }
+      }
+    },
+    {
+      "name": "VALID_CAPTCHA",
+      "type": "say-play",
+      "transitions": [
+        {
+          "next": "SEND_VERIFY",
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "voice": "Polly.Joanna",
+        "offset": {
+          "x": -420,
+          "y": 740
+        },
+        "loop": 1,
+        "say": "Great! That is the correct answer!",
+        "language": "en-US"
+      }
+    },
+    {
+      "name": "INVALID_CAPTCHA",
+      "type": "say-play",
+      "transitions": [
+        {
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -730,
+          "y": 480
+        },
+        "loop": 1,
+        "say": "Sorry, that's invalid!"
+      }
+    },
+    {
+      "name": "SEND_VERIFY",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "GET_VERIFY",
+          "event": "success"
+        },
+        {
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "default",
+        "offset": {
+          "x": -50,
+          "y": 740
+        },
+        "parameters": [
+          {
+            "value": "{{trigger.call.From}}",
+            "key": "Number"
+          }
+        ],
+        "url": "https://wenge-chimpanzee-3640.twil.io/SendVerify"
+      }
+    },
+    {
+      "name": "GET_VERIFY",
+      "type": "gather-input-on-call",
+      "transitions": [
+        {
+          "next": "TEST_VERIFY",
+          "event": "keypress"
+        },
+        {
+          "event": "speech"
+        },
+        {
+          "event": "timeout"
+        }
+      ],
+      "properties": {
+        "voice": "Polly.Joanna",
+        "speech_timeout": "auto",
+        "offset": {
+          "x": -420,
+          "y": 990
+        },
+        "loop": 5,
+        "finish_on_key": "#",
+        "say": "To prevent fraud and phishing, we have sent you a text message with a verification code. Please enter your code followed by the pound sign.",
+        "language": "en-US",
+        "stop_gather": true,
+        "gather_language": "en",
+        "profanity_filter": "true",
+        "timeout": 10
+      }
+    },
+    {
+      "name": "TEST_VERIFY",
+      "type": "run-function",
+      "transitions": [
+        {
+          "next": "CONFIRM_VERIFY",
+          "event": "success"
+        },
+        {
+          "event": "fail"
+        }
+      ],
+      "properties": {
+        "service_sid": "default",
+        "offset": {
+          "x": -50,
+          "y": 990
+        },
+        "parameters": [
+          {
+            "value": "{{trigger.call.From}}",
+            "key": "Number"
+          },
+          {
+            "value": "{{widgets.GET_VERIFY.Digits}}",
+            "key": "Code"
+          }
+        ],
+        "url": "https://wenge-chimpanzee-3640.twil.io/TestVerify"
+      }
+    },
+    {
+      "name": "CONFIRM_VERIFY",
+      "type": "split-based-on",
+      "transitions": [
+        {
+          "next": "INVALID_VERIFY",
+          "event": "noMatch"
+        },
+        {
+          "next": "VALID_VERIFY",
+          "event": "match",
+          "conditions": [
+            {
+              "friendly_name": "If value equal_to approved",
+              "arguments": [
+                "{{widgets.TEST_VERIFY.body}}"
+              ],
+              "type": "equal_to",
+              "value": "approved"
+            }
+          ]
+        }
+      ],
+      "properties": {
+        "input": "{{widgets.TEST_VERIFY.body}}",
+        "offset": {
+          "x": -320,
+          "y": 1260
+        }
+      }
+    },
+    {
+      "name": "VALID_VERIFY",
+      "type": "say-play",
+      "transitions": [
+        {
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -230,
+          "y": 1500
+        },
+        "loop": 1,
+        "say": "Great! That is the correct code!"
+      }
+    },
+    {
+      "name": "INVALID_VERIFY",
+      "type": "say-play",
+      "transitions": [
+        {
+          "event": "audioComplete"
+        }
+      ],
+      "properties": {
+        "offset": {
+          "x": -650,
+          "y": 1260
+        },
+        "loop": 1,
+        "say": "Sorry, that is the wrong code."
+      }
+    }
+  ],
+  "initial_state": "Trigger",
+  "flags": {
+    "allow_concurrent_calls": true
+  }
+}
